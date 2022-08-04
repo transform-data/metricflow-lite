@@ -35,7 +35,11 @@ from metricflow_lite.cli.utils import (
 )
 from metricflow_lite.configuration.config_builder import YamlTemplateBuilder
 from metricflow_lite.dataflow.dataflow_plan_to_text import dataflow_plan_as_text
-from metricflow_lite.engine.metricflow_engine import MetricFlowQueryRequest, MetricFlowExplainResult, MetricFlowQueryResult
+from metricflow_lite.engine.metricflow_engine import (
+    MetricFlowQueryRequest,
+    MetricFlowExplainResult,
+    MetricFlowQueryResult,
+)
 from metricflow_lite.engine.utils import model_build_result_from_config, path_to_models
 from metricflow_lite.model.data_warehouse_model_validator import DataWarehouseModelValidator
 from metricflow_lite.model.model_validator import ModelValidator
