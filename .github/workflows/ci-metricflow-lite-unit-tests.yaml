@@ -35,6 +35,6 @@ jobs:
         run: poetry install
 
       - name: Run MetricFlow-Lite Unit tests suites
-        run: pytest metricflow/test
+        run: pytest metricflow_lite/test
         env:
           METRICFLOW_CLIENT_EMAIL: ci-tester@gmail.com
