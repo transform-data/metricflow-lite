@@ -21,7 +21,7 @@ install:
 # Testing and linting
 .PHONY: test
 test:
-	poetry run pytest metricflow/test/
+	poetry run pytest metricflow_lite/test/
 
 .PHONY: lint
 lint:
