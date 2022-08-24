@@ -5,16 +5,23 @@
         <OrderByLimitNode>
             <!-- description = Order By ['metric_time', 'bookings'] -->
             <!-- node_id = obl_0 -->
-            <!-- order_by_spec =                                        -->
-            <!--   {'class': 'OrderBySpec',                             -->
-            <!--    'item': {'element_name': 'metric_time',             -->
-            <!--             'identifier_links': (),                    -->
-            <!--             'time_granularity': TimeGranularity.DAY},  -->
-            <!--    'descending': False}                                -->
-            <!-- order_by_spec =                           -->
-            <!--   {'class': 'OrderBySpec',                -->
-            <!--    'item': {'element_name': 'bookings'},  -->
-            <!--    'descending': True}                    -->
+            <!-- order_by_spec =                                                       -->
+            <!--   {'class': 'OrderBySpec',                                            -->
+            <!--    'descending': False,                                               -->
+            <!--    'metric_spec': None,                                               -->
+            <!--    'dimension_spec': None,                                            -->
+            <!--    'time_dimension_spec': {'class': 'TimeDimensionSpec',              -->
+            <!--                            'element_name': 'metric_time',             -->
+            <!--                            'identifier_links': (),                    -->
+            <!--                            'time_granularity': TimeGranularity.DAY},  -->
+            <!--    'identifier_spec': None}                                           -->
+            <!-- order_by_spec =                                                         -->
+            <!--   {'class': 'OrderBySpec',                                              -->
+            <!--    'descending': True,                                                  -->
+            <!--    'metric_spec': {'class': 'MetricSpec', 'element_name': 'bookings'},  -->
+            <!--    'dimension_spec': None,                                              -->
+            <!--    'time_dimension_spec': None,                                         -->
+            <!--    'identifier_spec': None}                                             -->
             <!-- limit = None -->
             <ComputeMetricsNode>
                 <!-- description = Compute Metrics via Expressions -->
@@ -28,7 +35,10 @@
                         <!--   Pass Only Elements:            -->
                         <!--     ['bookings', 'metric_time']  -->
                         <!-- node_id = pfe_0 -->
-                        <!-- include_spec = MeasureSpec(element_name='bookings') -->
+                        <!-- include_spec =                      -->
+                        <!--   {'class': 'MeasureSpec',          -->
+                        <!--    'element_name': 'bookings',      -->
+                        <!--    'non_additive_dimension': None}  -->
                         <!-- include_spec =                               -->
                         <!--   {'class': 'TimeDimensionSpec',             -->
                         <!--    'element_name': 'metric_time',            -->
@@ -36,15 +46,19 @@
                         <!--    'time_granularity': TimeGranularity.DAY}  -->
                         <MetricTimeDimensionTransformNode>
                             <!-- description = Metric Time Dimension 'ds' -->
-                            <!-- node_id = sma_10000 -->
+                            <!-- node_id = sma_10003 -->
                             <!-- aggregation_time_dimension = ds -->
-                            <ReadSqlSourceNode>
-                                <!-- description =                                                                           -->
-                                <!--   Read From DataSourceDataSet(DataSourceReference(data_source_name='bookings_source'))  -->
-                                <!-- node_id = rss_10009 -->
-                                <!-- data_set =                                                                    -->
-                                <!--   DataSourceDataSet(DataSourceReference(data_source_name='bookings_source'))  -->
-                            </ReadSqlSourceNode>
+                            <FilterElementsNode>
+                                <!-- description = Pass Only Additive Measures -->
+                                <!-- node_id = pfe_10003 -->
+                                <ReadSqlSourceNode>
+                                    <!-- description =                                                                           -->
+                                    <!--   Read From DataSourceDataSet(DataSourceReference(data_source_name='bookings_source'))  -->
+                                    <!-- node_id = rss_10011 -->
+                                    <!-- data_set =                                                                    -->
+                                    <!--   DataSourceDataSet(DataSourceReference(data_source_name='bookings_source'))  -->
+                                </ReadSqlSourceNode>
+                            </FilterElementsNode>
                         </MetricTimeDimensionTransformNode>
                     </FilterElementsNode>
                 </AggregateMeasuresNode>
