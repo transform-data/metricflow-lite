@@ -1227,7 +1227,7 @@ pyyaml = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.10"
-content-hash = "076c157b505e475a48c22e9e48880c91851ac888c2c3fa42957ce361cb3d187f"
+content-hash = "e0ed53f1a3dea08ebf56e5387dd9ceed35a58a8ab2d00d5537b0b89710ed53c9"
 
 [metadata.files]
 asn1crypto = [

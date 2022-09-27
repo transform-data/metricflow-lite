@@ -1,10 +1,11 @@
 import pytest
 
+from metricflow.aggregation_properties import AggregationType
 from metricflow.model.model_validator import ModelValidator
 from metricflow.model.objects.data_source import Mutability, MutabilityType
 from metricflow.model.objects.elements.dimension import Dimension, DimensionType, DimensionTypeParams
 from metricflow.model.objects.elements.identifier import Identifier, IdentifierType
-from metricflow.model.objects.elements.measure import Measure, AggregationType
+from metricflow.model.objects.elements.measure import Measure
 from metricflow.model.objects.metric import MetricType, MetricTypeParams
 from metricflow.model.objects.user_configured_model import UserConfiguredModel
 from metricflow.model.validations.validator_helpers import ModelValidationException
@@ -12,33 +13,6 @@ from metricflow.references import DimensionReference, IdentifierReference, TimeD
 from metricflow.test.fixtures.table_fixtures import DEFAULT_DS
 from metricflow.test.model.validations.helpers import data_source_with_guaranteed_meta, metric_with_guaranteed_meta
 from metricflow.time.time_granularity import TimeGranularity
-
-
-@pytest.mark.skip("TODO: Will convert to validation rule")
-def test_metric_missing_measure() -> None:  # noqa:D
-    with pytest.raises(ModelValidationException):
-        measure_name = "my_measure"
-        measure2_name = "nonexistent_measure"
-        model_validator = ModelValidator()
-        model_validator.checked_validations(
-            UserConfiguredModel(
-                data_sources=[
-                    data_source_with_guaranteed_meta(
-                        name="sum_measure",
-                        sql_query="SELECT foo FROM bar",
-                        measures=[Measure(name=measure_name, agg=AggregationType.SUM)],
-                        mutability=Mutability(type=MutabilityType.IMMUTABLE),
-                    )
-                ],
-                metrics=[
-                    metric_with_guaranteed_meta(
-                        name="metric_with_nonexistent_measure",
-                        type=MetricType.MEASURE_PROXY,
-                        type_params=MetricTypeParams(measures=[measure2_name]),
-                    )
-                ],
-            )
-        )
 
 
 def test_metric_no_time_dim_dim_only_source() -> None:  # noqa:D

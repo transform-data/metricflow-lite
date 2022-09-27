@@ -14,13 +14,13 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, TypeVar, Generic, Any
+from metricflow.aggregation_properties import AggregationType
 
 from metricflow.column_assoc import ColumnAssociation
 from metricflow.constraints.time_constraint import TimeRangeConstraint
 from metricflow.dataclass_serialization import SerializableDataclass
-from metricflow.model.objects.elements.measure import NonAdditiveDimensionParameters
 from metricflow.naming.linkable_spec_name import StructuredLinkableSpecName
-from metricflow.object_utils import assert_exactly_one_arg_set
+from metricflow.object_utils import assert_exactly_one_arg_set, hash_strings
 from metricflow.references import DimensionReference, MeasureReference, TimeDimensionReference, IdentifierReference
 from metricflow.sql.sql_bind_parameters import SqlBindParameters
 from metricflow.time.time_granularity import TimeGranularity
@@ -171,6 +171,10 @@ class IdentifierSpec(LinkableInstanceSpec, SerializableDataclass):  # noqa: D
     def __hash__(self) -> int:  # noqa: D
         return hash((self.element_name, self.identifier_links))
 
+    @property
+    def reference(self) -> IdentifierReference:  # noqa: D
+        return IdentifierReference(element_name=self.element_name)
+
 
 @dataclass(frozen=True)
 class LinklessIdentifierSpec(IdentifierSpec, SerializableDataclass):
@@ -278,9 +282,29 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D
 
 
 @dataclass(frozen=True)
+class NonAdditiveDimensionSpec(SerializableDataclass):
+    """Spec representing non-additive dimension parameters for use within a MeasureSpec
+
+    This is sourced from the NonAdditiveDimensionParameters model object, which provides the parsed parameter set,
+    while the spec contains the information needed for dataflow plan operations
+    """
+
+    name: str
+    window_choice: AggregationType
+    window_groupings: Tuple[str, ...] = ()
+
+    @property
+    def bucket_hash(self) -> str:
+        """Returns the hash value used for grouping equivalent params."""
+        values = [self.window_choice.name, self.name]
+        values.extend(sorted(self.window_groupings))
+        return hash_strings(values)
+
+
+@dataclass(frozen=True)
 class MeasureSpec(InstanceSpec):  # noqa: D
     element_name: str
-    non_additive_dimension: Optional[NonAdditiveDimensionParameters] = None
+    non_additive_dimension_spec: Optional[NonAdditiveDimensionSpec] = None
 
     def column_associations(self, resolver: ColumnAssociationResolver) -> Tuple[ColumnAssociation, ...]:  # noqa: D
         return (resolver.resolve_measure_spec(self),)
@@ -289,6 +313,11 @@ class MeasureSpec(InstanceSpec):  # noqa: D
     def from_name(name: str) -> MeasureSpec:
         """Construct from a name e.g. listing__ds__month."""
         return MeasureSpec(element_name=name)
+
+    @staticmethod
+    def from_reference(reference: MeasureReference) -> MeasureSpec:
+        """Initialize from a measure reference instance"""
+        return MeasureSpec(element_name=reference.element_name)
 
     @property
     def qualified_name(self) -> str:  # noqa: D
@@ -310,6 +339,36 @@ class MetricSpec(InstanceSpec):  # noqa: D
     @property
     def qualified_name(self) -> str:  # noqa: D
         return self.element_name
+
+
+@dataclass(frozen=True)
+class MetricInputMeasureSpec(SerializableDataclass):
+    """The spec for a measure defined as a metric input.
+
+    This is necessary because the MeasureSpec is used as a key linking the measures used in the query
+    to the measures defined in the data sources. Adding metric-specific information, like constraints,
+    causes lookups connecting query -> data source to fail in strange ways. This spec, then, provides
+    both the key (in the form of a MeasureSpec) along with whatever measure-specific attributes
+    a user might specify in a metric definition or query accessing the metric itself.
+
+    Note - when specifying a metric comprised of two input instances of the same measure, at least one
+    must have a distinct alias, otherwise SQL exceptions may occur. This should be enforced via validation.
+    """
+
+    measure_spec: MeasureSpec
+    constraint: Optional[SpecWhereClauseConstraint] = None
+    alias: Optional[str] = None
+
+    @property
+    def post_aggregation_spec(self) -> MeasureSpec:
+        """Return a MeasureSpec instance representing the post-aggregation spec state for the underlying measure"""
+        if self.alias:
+            return MeasureSpec(
+                element_name=self.alias,
+                non_additive_dimension_spec=self.measure_spec.non_additive_dimension_spec,
+            )
+        else:
+            return self.measure_spec
 
 
 @dataclass(frozen=True)
