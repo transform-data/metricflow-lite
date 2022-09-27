@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metricflow-lite"
-version = "0.111.0"
+version = "0.111.1"
 description = "Lite version of MetricFlow. This version is missing dependencies for using connectors with data warehouses"
 authors = ["Transform <hello@transformdata.io>"]
 license = "AGPL-3.0-or-later"
@@ -13,6 +13,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.10"
+typing_extensions = ">=4.0.0"
 
 croniter = "^1.3.4"
 pycron = "^3.0.0"

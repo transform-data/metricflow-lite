@@ -12,10 +12,11 @@ from metricflow.errors.errors import (
     InvalidDataSourceError,
 )
 from metricflow.instances import DataSourceReference, DataSourceElementReference
+from metricflow.aggregation_properties import AggregationType
 from metricflow.model.objects.data_source import DataSource, DataSourceOrigin
 from metricflow.model.objects.elements.dimension import Dimension
 from metricflow.model.objects.elements.identifier import Identifier
-from metricflow.model.objects.elements.measure import Measure, AggregationType, NonAdditiveDimensionParameters
+from metricflow.model.objects.elements.measure import Measure
 from metricflow.model.objects.metric import Metric, MetricType
 from metricflow.model.objects.user_configured_model import UserConfiguredModel
 from metricflow.model.semantics.data_source_container import PydanticDataSourceContainer
@@ -24,6 +25,7 @@ from metricflow.model.semantics.linkable_spec_resolver import (
     ValidLinkableSpecResolver,
     LinkableElementProperties,
 )
+from metricflow.model.spec_converters import MeasureConverter, WhereConstraintConverter
 from metricflow.references import (
     DimensionReference,
     IdentifierReference,
@@ -34,7 +36,9 @@ from metricflow.references import (
 from metricflow.specs import (
     LinkableInstanceSpec,
     MeasureSpec,
+    MetricInputMeasureSpec,
     MetricSpec,
+    NonAdditiveDimensionSpec,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,17 +117,34 @@ class MetricSemantics:  # noqa: D
         """Return all of the hashes of the metric definitions."""
         return set(self._metric_hashes.values())
 
-    def measures_for_metric(self, metric_spec: MetricSpec) -> Tuple[MeasureSpec, ...]:
+    def measures_for_metric(self, metric_spec: MetricSpec) -> Tuple[MetricInputMeasureSpec, ...]:
         """Return the measure specs required to compute the metric."""
         metric = self.get_metric(metric_spec)
+        input_measure_specs: List[MetricInputMeasureSpec] = []
 
-        return tuple(
-            MeasureSpec(
-                element_name=x.element_name,
-                non_additive_dimension=self._data_source_semantics.non_additive_dimension_by_measure.get(x),
+        for input_measure in metric.input_measures:
+            spec_constraint = (
+                WhereConstraintConverter.convert_to_spec_where_constraint(
+                    data_source_semantics=self._data_source_semantics,
+                    where_constraint=input_measure.constraint,
+                )
+                if input_measure.constraint is not None
+                else None
             )
-            for x in metric.measure_references
-        )
+            measure_spec = MeasureSpec(
+                element_name=input_measure.name,
+                non_additive_dimension_spec=self._data_source_semantics.non_additive_dimension_specs_by_measure.get(
+                    input_measure.measure_reference
+                ),
+            )
+            spec = MetricInputMeasureSpec(
+                measure_spec=measure_spec,
+                constraint=spec_constraint,
+                alias=input_measure.alias,
+            )
+            input_measure_specs.append(spec)
+
+        return tuple(input_measure_specs)
 
     def contains_cumulative_metric(self, metric_specs: Sequence[MetricSpec]) -> bool:
         """Returns true if any of the specs correspond to a cumulative metric."""
@@ -134,7 +155,11 @@ class MetricSemantics:  # noqa: D
 
 
 class DataSourceSemantics:
-    """Tracks semantic information for data source held in a set of DataSourceContainers"""
+    """Tracks semantic information for data source held in a set of DataSourceContainers
+
+    This implements both the DataSourceSemanticsAccessors protocol, the interface type we use throughout the codebase.
+    That interface prevents unwanted calls to methods for adding data sources to the container.
+    """
 
     def __init__(  # noqa: D
         self,
@@ -146,7 +171,7 @@ class DataSourceSemantics:
         self._measure_aggs: Dict[
             MeasureReference, AggregationType
         ] = {}  # maps measures to their one consistent aggregation
-        self._measure_non_additive_dimension: Dict[MeasureReference, NonAdditiveDimensionParameters] = {}
+        self._measure_non_additive_dimension_specs: Dict[MeasureReference, NonAdditiveDimensionSpec] = {}
         self._dimension_index: Dict[DimensionReference, List[DataSource]] = defaultdict(list)
         self._linkable_reference_index: Dict[LinkableElementReference, List[DataSource]] = defaultdict(list)
         self._entity_index: Dict[Optional[str], List[DataSource]] = defaultdict(list)
@@ -208,8 +233,8 @@ class DataSourceSemantics:
         return list(self._measure_index.keys())
 
     @property
-    def non_additive_dimension_by_measure(self) -> Dict[MeasureReference, NonAdditiveDimensionParameters]:  # noqa: D
-        return self._measure_non_additive_dimension
+    def non_additive_dimension_specs_by_measure(self) -> Dict[MeasureReference, NonAdditiveDimensionSpec]:  # noqa: D
+        return self._measure_non_additive_dimension_specs
 
     def get_measure(self, measure_reference: MeasureReference) -> Measure:  # noqa: D
         if measure_reference not in self._measure_index:
@@ -291,13 +316,15 @@ class DataSourceSemantics:
             agg_time_dimension = measure.checked_agg_time_dimension
             self._data_source_to_aggregation_time_dimensions[data_source.reference].add_value(
                 key=agg_time_dimension,
-                value=MeasureSpec(
-                    element_name=measure.name,
-                    non_additive_dimension=measure.non_additive_dimension,
-                ),
+                value=MeasureConverter.convert_to_measure_spec(measure=measure),
             )
             if measure.non_additive_dimension:
-                self._measure_non_additive_dimension[measure.reference] = measure.non_additive_dimension
+                non_additive_dimension_spec = NonAdditiveDimensionSpec(
+                    name=measure.non_additive_dimension.name,
+                    window_choice=measure.non_additive_dimension.window_choice,
+                    window_groupings=tuple(measure.non_additive_dimension.window_groupings),
+                )
+                self._measure_non_additive_dimension_specs[measure.reference] = non_additive_dimension_spec
         for dim in data_source.dimensions:
             self._linkable_reference_index[dim.reference].append(data_source)
             self._dimension_index[dim.reference].append(data_source)
@@ -319,3 +346,8 @@ class DataSourceSemantics:
             data_source_reference in self._data_source_to_aggregation_time_dimensions
         ), f"Data Source {data_source_reference} is not known"
         return self._data_source_to_aggregation_time_dimensions[data_source_reference]
+
+    def get_data_sources_for_identifier(self, identifier_reference: IdentifierReference) -> Set[DataSource]:
+        """Return all data sources associated with an identifier reference"""
+        identifier_entity = self._identifier_ref_to_entity[identifier_reference]
+        return set(self._entity_index[identifier_entity])

@@ -584,6 +584,12 @@
                 {
                     "additionalProperties": false,
                     "properties": {
+                        "alias": {
+                            "type": "string"
+                        },
+                        "constraint": {
+                            "type": "string"
+                        },
                         "name": {
                             "type": "string"
                         }
@@ -713,10 +719,10 @@
         "data_source": {
             "$ref": "#/definitions/data_source"
         },
-        "derived_group_by_element_schema": {
+        "derived_identifier": {
             "$ref": "#/definitions/derived_group_by_element_schema"
         },
-        "materialization_schema": {
+        "materialization": {
             "$ref": "#/definitions/materialization_schema"
         },
         "metric": {

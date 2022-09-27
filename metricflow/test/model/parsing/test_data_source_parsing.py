@@ -1,9 +1,9 @@
 import textwrap
 
+from metricflow.aggregation_properties import AggregationType
 from metricflow.model.objects.common import YamlConfigFile
 from metricflow.model.objects.data_source import DataSourceOrigin, MutabilityType
 from metricflow.model.objects.elements.identifier import IdentifierType
-from metricflow.model.objects.elements.measure import AggregationType
 from metricflow.model.objects.elements.dimension import DimensionType
 from metricflow.model.parsing.dir_to_model import parse_yaml_files_to_model
 from metricflow.time.time_granularity import TimeGranularity
@@ -159,6 +159,42 @@ def test_data_source_identifier_parsing() -> None:
     assert identifier.role == "test_role"
     assert identifier.entity == "other_identifier"
     assert identifier.expr == "example_id"
+
+
+def test_data_source_identifier_metadata_parsing() -> None:
+    """Test for parsing metadata for an identifier object defined in a data source specification"""
+    yaml_contents = textwrap.dedent(
+        """\
+        data_source:
+          name: identifier_test
+          mutability:
+            type: immutable
+          sql_table: some_schema.source_table
+          identifiers:
+            - name: example_identifier
+              type: primary
+              role: test_role
+        """
+    )
+    file = YamlConfigFile(filepath="test_dir/inline_for_test", contents=yaml_contents)
+
+    build_result = parse_yaml_files_to_model(files=[file])
+
+    assert len(build_result.model.data_sources) == 1
+    data_source = build_result.model.data_sources[0]
+    assert len(data_source.identifiers) == 1
+    identifier = data_source.identifiers[0]
+    assert identifier.metadata is not None
+    assert identifier.metadata.repo_file_path == "test_dir/inline_for_test"
+    assert identifier.metadata.file_slice.filename == "inline_for_test"
+    expected_metadata_content = textwrap.dedent(
+        """\
+      name: example_identifier
+      type: primary
+      role: test_role
+      """
+    )
+    assert identifier.metadata.file_slice.content == expected_metadata_content
 
 
 def test_data_source_identifier_default_entity_parsing() -> None:
@@ -457,3 +493,39 @@ def test_data_source_primary_time_dimension_parsing() -> None:
     assert dimension.type is DimensionType.TIME
     assert dimension.type_params is not None
     assert dimension.type_params.is_primary is True
+
+
+def test_data_source_dimension_metadata_parsing() -> None:
+    """Test for parsing metadata for an dimension object defined in a data source specification"""
+    yaml_contents = textwrap.dedent(
+        """\
+        data_source:
+          name: dimension_parsing_test
+          mutability:
+            type: immutable
+          sql_table: some_schema.source_table
+          dimensions:
+            - name: example_categorical_dimension
+              type: categorical
+              expr: dimension_input
+        """
+    )
+    file = YamlConfigFile(filepath="test_dir/inline_for_test", contents=yaml_contents)
+
+    build_result = parse_yaml_files_to_model(files=[file])
+
+    assert len(build_result.model.data_sources) == 1
+    data_source = build_result.model.data_sources[0]
+    assert len(data_source.dimensions) == 1
+    dimension = data_source.dimensions[0]
+    assert dimension.metadata is not None
+    assert dimension.metadata.repo_file_path == "test_dir/inline_for_test"
+    assert dimension.metadata.file_slice.filename == "inline_for_test"
+    expected_metadata_content = textwrap.dedent(
+        """\
+      name: example_categorical_dimension
+      type: categorical
+      expr: dimension_input
+      """
+    )
+    assert dimension.metadata.file_slice.content == expected_metadata_content
