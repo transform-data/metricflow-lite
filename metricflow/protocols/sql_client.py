@@ -2,22 +2,27 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from enum import Enum
-from typing import ClassVar, Dict, Optional, Protocol
+from typing import ClassVar, Dict, Optional, Protocol, Sequence
+
+from pandas import DataFrame
 
 from metricflow.dataflow.sql_table import SqlTable
 from metricflow.sql.render.sql_plan_renderer import SqlQueryPlanRenderer
 from metricflow.sql.sql_bind_parameters import SqlBindParameters
-from pandas import DataFrame
 
 
-class SupportedSqlEngine(Enum):
-    """Enumeration of DB engines currently supported by MetricFlow"""
+class SqlEngine(Enum):
+    """Enumeration of SQL engines, including ones that are not yet supported."""
 
     BIGQUERY = "BigQuery"
     DUCKDB = "DuckDB"
     REDSHIFT = "Redshift"
     POSTGRES = "Postgres"
     SNOWFLAKE = "Snowflake"
+    DATABRICKS = "Databricks"
+
+    # Not yet supported.
+    MYSQL = "MySQL"
 
 
 class SqlClient(Protocol):
@@ -97,6 +102,11 @@ class SqlClient(Protocol):
         raise NotImplementedError
 
     @abstractmethod
+    def list_tables(self, schema_name: str) -> Sequence[str]:
+        """List the tables in the given schema"""
+        raise NotImplementedError
+
+    @abstractmethod
     def table_exists(self, sql_table: SqlTable) -> bool:
         """Determines whether or not the given table exists in the data warehouse"""
         raise NotImplementedError
@@ -143,6 +153,11 @@ class SqlClient(Protocol):
         """Cancel queries submitted through this client (that may be still running) with best-effort."""
         raise NotImplementedError
 
+    @abstractmethod
+    def render_execution_param_key(self, execution_param_key: str) -> str:
+        """Wrap execution parameter key with syntax accepted by engine."""
+        raise NotImplementedError
+
 
 class SqlEngineAttributes(Protocol):
     """Base interface for SQL engine-specific attributes and features
@@ -157,7 +172,7 @@ class SqlEngineAttributes(Protocol):
     caused by changes to the protocol itself when inheritance is used.
     """
 
-    sql_engine_type: ClassVar[SupportedSqlEngine]
+    sql_engine_type: ClassVar[SqlEngine]
 
     # SQL Engine capabilities
     date_trunc_supported: ClassVar[bool]

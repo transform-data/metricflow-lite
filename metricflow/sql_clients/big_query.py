@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from typing import ClassVar, Optional, List
+from typing import ClassVar, Optional, Sequence
 
 import sqlalchemy
 
-from metricflow.protocols.sql_client import SupportedSqlEngine, SqlEngineAttributes
+from metricflow.protocols.sql_client import SqlEngine, SqlEngineAttributes
 from metricflow.sql.render.big_query import BigQuerySqlQueryPlanRenderer
 from metricflow.sql.render.sql_plan_renderer import SqlQueryPlanRenderer
 from metricflow.sql.sql_bind_parameters import SqlBindParameters
@@ -19,7 +19,7 @@ class BigQueryEngineAttributes:
     This is an implementation of the SqlEngineAttributes protocol for BigQuery
     """
 
-    sql_engine_type: ClassVar[SupportedSqlEngine] = SupportedSqlEngine.BIGQUERY
+    sql_engine_type: ClassVar[SqlEngine] = SqlEngine.BIGQUERY
 
     # SQL Engine capabilities
     date_trunc_supported: ClassVar[bool] = True
@@ -104,7 +104,7 @@ class BigQuerySqlClient(SqlAlchemySqlClient):
         """Collection of attributes and features specific to the BigQuery SQL engine"""
         return BigQueryEngineAttributes()
 
-    def list_tables(self, schema_name: str) -> List[str]:  # noqa: D
+    def list_tables(self, schema_name: str) -> Sequence[str]:  # noqa: D
         with self.engine_connection(engine=self._engine) as conn:
             insp = sqlalchemy.inspection.inspect(conn)
             schema_dot_tables = insp.get_table_names(schema=schema_name)

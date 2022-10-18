@@ -2,7 +2,7 @@ import logging
 from typing import ClassVar, Mapping, Optional, Sequence, Union
 
 import sqlalchemy
-from metricflow.protocols.sql_client import SqlEngineAttributes, SupportedSqlEngine
+from metricflow.protocols.sql_client import SqlEngineAttributes, SqlEngine
 from metricflow.sql.render.postgres import PostgresSQLSqlQueryPlanRenderer
 from metricflow.sql.render.sql_plan_renderer import SqlQueryPlanRenderer
 from metricflow.sql_clients.common_client import SqlDialect, not_empty
@@ -17,7 +17,7 @@ class PostgresEngineAttributes(SqlEngineAttributes):
     This is an implementation of the SqlEngineAttributes protocol for Postgres
     """
 
-    sql_engine_type: ClassVar[SupportedSqlEngine] = SupportedSqlEngine.POSTGRES
+    sql_engine_type: ClassVar[SqlEngine] = SqlEngine.POSTGRES
 
     # SQL Engine capabilities
     date_trunc_supported: ClassVar[bool] = True
@@ -83,7 +83,7 @@ class PostgresSqlClient(SqlAlchemySqlClient):
 
     @property
     def sql_engine_attributes(self) -> SqlEngineAttributes:
-        """Collection of attributes and features specific to the Snowflake SQL engine"""
+        """Collection of attributes and features specific to the Postgres SQL engine"""
         return PostgresEngineAttributes()
 
     def cancel_submitted_queries(self) -> None:  # noqa: D

@@ -14,14 +14,20 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, TypeVar, Generic, Any
-from metricflow.aggregation_properties import AggregationType
+from metricflow.aggregation_properties import AggregationType, AggregationState
 
 from metricflow.column_assoc import ColumnAssociation
 from metricflow.constraints.time_constraint import TimeRangeConstraint
 from metricflow.dataclass_serialization import SerializableDataclass
 from metricflow.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow.object_utils import assert_exactly_one_arg_set, hash_strings
-from metricflow.references import DimensionReference, MeasureReference, TimeDimensionReference, IdentifierReference
+from metricflow.references import (
+    DimensionReference,
+    MeasureReference,
+    MetricReference,
+    TimeDimensionReference,
+    IdentifierReference,
+)
 from metricflow.sql.sql_bind_parameters import SqlBindParameters
 from metricflow.time.time_granularity import TimeGranularity
 
@@ -56,7 +62,9 @@ class ColumnAssociationResolver(ABC):
         pass
 
     @abstractmethod
-    def resolve_time_dimension_spec(self, time_dimension_spec: TimeDimensionSpec) -> ColumnAssociation:  # noqa: D
+    def resolve_time_dimension_spec(  # noqa: D
+        self, time_dimension_spec: TimeDimensionSpec, aggregation_state: Optional[AggregationState] = None
+    ) -> ColumnAssociation:
         pass
 
     @abstractmethod
@@ -300,6 +308,21 @@ class NonAdditiveDimensionSpec(SerializableDataclass):
         values.extend(sorted(self.window_groupings))
         return hash_strings(values)
 
+    @property
+    def linkable_specs(self) -> LinkableSpecSet:  # noqa: D
+        return LinkableSpecSet(
+            dimension_specs=(),
+            time_dimension_specs=(TimeDimensionSpec.from_name(self.name),),
+            identifier_specs=tuple(
+                LinklessIdentifierSpec.from_element_name(identifier_name) for identifier_name in self.window_groupings
+            ),
+        )
+
+    def __eq__(self, other: Any) -> bool:  # type: ignore[misc] # noqa: D
+        if not isinstance(other, NonAdditiveDimensionSpec):
+            return False
+        return self.bucket_hash == other.bucket_hash
+
 
 @dataclass(frozen=True)
 class MeasureSpec(InstanceSpec):  # noqa: D
@@ -339,6 +362,15 @@ class MetricSpec(InstanceSpec):  # noqa: D
     @property
     def qualified_name(self) -> str:  # noqa: D
         return self.element_name
+
+    @property
+    def as_reference(self) -> MetricReference:  # noqa: D
+        return MetricReference(element_name=self.element_name)
+
+    @staticmethod
+    def from_reference(reference: MetricReference) -> MetricSpec:
+        """Initialize from a metric reference instance"""
+        return MetricSpec(element_name=reference.element_name)
 
 
 @dataclass(frozen=True)

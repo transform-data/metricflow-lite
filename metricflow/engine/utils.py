@@ -37,9 +37,40 @@ def model_build_result_from_config(
         raise ModelCreationException from e
 
 
+def model_build_result_from_dbt_config(
+    handler: YamlFileHandler, raise_issues_as_exceptions: bool = True
+) -> ModelBuildResult:
+    """Given a yaml file, creates a ModelBuildResult.
+
+    Args:
+        handler: a file handler for loading the configs from
+        raise_issues_as_exceptions: determines if issues should be raised, or returned as issues
+
+    Returns:
+        ModelBuildResult that contains the UserConfigureModel and any associated ValidationIssues
+    """
+    dbt_models_path = path_to_models(handler=handler)
+    try:
+        # This import results in eventually importing dbt, and dbt is an
+        # optional dep meaning it isn't guaranteed to be installed. If the
+        # import is at the top ofthe file MetricFlow will blow up if dbt
+        # isn't installed. Thus by importing it here, we only run into the
+        # exception if this method is called without dbt installed.
+        from metricflow.model.parsing.dbt_dir_to_model import parse_dbt_project_to_model
+
+        return parse_dbt_project_to_model(dbt_models_path)
+    except Exception as e:
+        raise ModelCreationException from e
+
+
 def build_user_configured_model_from_config(handler: YamlFileHandler) -> UserConfiguredModel:
     """Given a yaml file, create a UserConfiguredModel."""
     return model_build_result_from_config(handler=handler).model
+
+
+def build_user_configured_model_from_dbt_config(handler: YamlFileHandler) -> UserConfiguredModel:
+    """Given a yaml file, create a UserConfiguredModel."""
+    return model_build_result_from_dbt_config(handler=handler).model
 
 
 def convert_to_datetime(datetime_str: Optional[str]) -> Optional[dt.datetime]:

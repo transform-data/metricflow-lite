@@ -163,10 +163,6 @@ class BaseSqlClientImplementation(ABC, SqlClient):
     ) -> None:
         pass
 
-    @abstractmethod
-    def list_tables(self, schema_name: str) -> List[str]:  # noqa: D
-        pass
-
     def table_exists(self, sql_table: SqlTable) -> bool:  # noqa: D
         return sql_table.table_name in self.list_tables(sql_table.schema_name)
 
@@ -203,3 +199,7 @@ class BaseSqlClientImplementation(ABC, SqlClient):
 
     def close(self) -> None:  # noqa: D
         pass
+
+    def render_execution_param_key(self, execution_param_key: str) -> str:
+        """Wrap execution parameter key with syntax accepted by engine."""
+        return f":{execution_param_key}"
