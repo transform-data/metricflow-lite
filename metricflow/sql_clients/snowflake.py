@@ -4,13 +4,13 @@ import logging
 import threading
 import urllib.parse
 from contextlib import contextmanager
-from typing import ClassVar, Optional, Dict, Iterator, List, Tuple, Any, Set
+from typing import ClassVar, Optional, Dict, Iterator, List, Tuple, Any, Set, Sequence
 
 import pandas as pd
 import sqlalchemy
 from sqlalchemy.exc import ProgrammingError
 
-from metricflow.protocols.sql_client import SupportedSqlEngine, SqlEngineAttributes
+from metricflow.protocols.sql_client import SqlEngine, SqlEngineAttributes
 from metricflow.sql.render.sql_plan_renderer import DefaultSqlQueryPlanRenderer
 from metricflow.sql.render.sql_plan_renderer import SqlQueryPlanRenderer
 from metricflow.sql.sql_bind_parameters import SqlBindParameters
@@ -24,7 +24,7 @@ class SnowflakeEngineAttributes(SqlEngineAttributes):
     This is an implementation of the SqlEngineAttributes protocol for Snowflake
     """
 
-    sql_engine_type: ClassVar[SupportedSqlEngine] = SupportedSqlEngine.SNOWFLAKE
+    sql_engine_type: ClassVar[SqlEngine] = SqlEngine.SNOWFLAKE
 
     # SQL Engine capabilities
     date_trunc_supported: ClassVar[bool] = True
@@ -205,7 +205,7 @@ class SnowflakeSqlClient(SqlAlchemySqlClient):
     ) -> pd.DataFrame:
         return self._query(stmt, bind_params)
 
-    def list_tables(self, schema_name: str) -> List[str]:  # noqa: D
+    def list_tables(self, schema_name: str) -> Sequence[str]:  # noqa: D
         df = self.query(
             f"SHOW TABLES IN {schema_name}",
         )

@@ -33,6 +33,7 @@ from metricflow.cli.utils import (
     start_end_time_options,
     generate_duckdb_demo_keys,
     MF_POSTGRESQL_KEYS,
+    MF_DATABRICKS_KEYS,
 )
 from metricflow.configuration.config_builder import YamlTemplateBuilder
 from metricflow.dataflow.sql_table import SqlTable
@@ -48,7 +49,7 @@ from metricflow.inference.runner import InferenceProgressReporter, InferenceRunn
 from metricflow.model.data_warehouse_model_validator import DataWarehouseModelValidator
 from metricflow.model.model_validator import ModelValidator
 from metricflow.model.objects.user_configured_model import UserConfiguredModel
-from metricflow.protocols.sql_client import SupportedSqlEngine
+from metricflow.protocols.sql_client import SqlEngine
 from metricflow.engine.utils import model_build_result_from_config, path_to_models
 from metricflow.model.parsing.config_linter import ConfigLinter
 from metricflow.model.validations.validator_helpers import ModelValidationResults
@@ -144,6 +145,7 @@ def setup(cfg: CLIContext, restart: bool) -> None:
             SqlDialect.REDSHIFT.value: MF_REDSHIFT_KEYS,
             SqlDialect.POSTGRESQL.value: MF_POSTGRESQL_KEYS,
             SqlDialect.DUCKDB.value: generate_duckdb_demo_keys(config_dir=cfg.config.dir_path),
+            SqlDialect.DATABRICKS.value: MF_DATABRICKS_KEYS,
         }
 
         click.echo("Please enter your data warehouse dialect.")
@@ -215,7 +217,7 @@ def tutorial(ctx: click.core.Context, cfg: CLIContext, msg: bool, skip_dw: bool,
                 `mf query \\
                   --metrics transactions,transaction_usd_na,transaction_usd_na_l7d --dimensions metric_time,is_large \\
                   --order metric_time --start-time 2022-03-20 --end-time 2022-04-01`
-                * You can also add `--explain --display-plans`.
+                * You can also add `--explain` or `--display-plans`.
             11. For more ways to interact with the sample models, go to
                 ‘https://docs.transform.co/docs/metricflow/metricflow-tutorial’.
             12. Once you’re done, run `mf tutorial --skip-dw --drop-tables` to drop the sample tables.
@@ -314,7 +316,7 @@ def tutorial(ctx: click.core.Context, cfg: CLIContext, msg: bool, skip_dw: bool,
 def query(
     cfg: CLIContext,
     metrics: List[str],
-    dimensions: List[str],
+    dimensions: List[str] = [],
     where: Optional[str] = None,
     start_time: Optional[dt.datetime] = None,
     end_time: Optional[dt.datetime] = None,
@@ -941,7 +943,7 @@ def infer(
         " If you find any bugs or feel like something is not behaving as it should, feel free to open an issue on the Metricflow Github repo: https://github.com/transform-data/metricflow/issues \n"
     )
 
-    if cfg.sql_client.sql_engine_attributes.sql_engine_type is not SupportedSqlEngine.SNOWFLAKE:
+    if cfg.sql_client.sql_engine_attributes.sql_engine_type is not SqlEngine.SNOWFLAKE:
         click.echo(
             "Data Source Inference is currently only supported for Snowflake. "
             "We will add support for all the other warehouses before it becomes a "

@@ -9,7 +9,7 @@ from typing import Optional, List, Sequence
 
 import pandas as pd
 
-from metricflow.configuration.constants import CONFIG_DWH_SCHEMA
+from metricflow.configuration.constants import CONFIG_DBT_REPO, CONFIG_DWH_SCHEMA
 from metricflow.configuration.yaml_handler import YamlFileHandler
 from metricflow.dataflow.builder.dataflow_plan_builder import DataflowPlanBuilder
 from metricflow.dataflow.builder.node_data_set import DataflowPlanNodeOutputDataSetResolver
@@ -32,8 +32,8 @@ from metricflow.plan_conversion.dataflow_to_sql import DataflowToSqlQueryPlanCon
 from metricflow.plan_conversion.time_spine import TimeSpineSource, TimeSpineTableBuilder
 from metricflow.protocols.sql_client import SqlClient
 from metricflow.query.query_parser import MetricFlowQueryParser
-from metricflow.specs import ColumnAssociationResolver
-from metricflow.specs import MetricSpec, MetricFlowQuerySpec
+from metricflow.specs import ColumnAssociationResolver, MetricFlowQuerySpec
+from metricflow.references import MetricReference
 from metricflow.sql.optimizer.optimization_levels import SqlQueryOptimizationLevel
 from metricflow.time.time_source import TimeSource
 from metricflow.dataset.data_source_adapter import DataSourceDataSet
@@ -272,7 +272,20 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
     def from_config(handler: YamlFileHandler) -> MetricFlowEngine:
         """Initialize MetricFlowEngine via yaml config file."""
         sql_client = make_sql_client_from_config(handler)
-        semantic_model = SemanticModel(build_user_configured_model_from_config(handler))
+
+        # Ideally we should put this getting of of CONFIG_DBT_REPO in a helper
+        dbt_repo = handler.get_value(CONFIG_DBT_REPO) or ""
+        if dbt_repo.lower() in ["yes", "y", "true", "t", "1"]:
+            # This import results in eventually importing dbt, and dbt is an
+            # optional dep meaning it isn't guaranteed to be installed. If the
+            # import is at the top ofthe file MetricFlow will blow up if dbt
+            # isn't installed. Thus by importing it here, we only run into the
+            # exception if this conditional is hit without dbt installed
+            from metricflow.engine.utils import build_user_configured_model_from_dbt_config
+
+            semantic_model = SemanticModel(build_user_configured_model_from_dbt_config(handler))
+        else:
+            semantic_model = SemanticModel(build_user_configured_model_from_config(handler))
         system_schema = not_empty(handler.get_value(CONFIG_DWH_SCHEMA), CONFIG_DWH_SCHEMA, handler.url)
         return MetricFlowEngine(
             semantic_model=semantic_model,
@@ -406,7 +419,9 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
         )
         logger.info(f"Query spec is:\n{pformat_big_objects(query_spec)}")
 
-        if self._semantic_model.metric_semantics.contains_cumulative_metric(query_spec.metric_specs):
+        if self._semantic_model.metric_semantics.contains_cumulative_metric(
+            tuple(m.as_reference for m in query_spec.metric_specs)
+        ):
             self._time_spine_table_builder.create_if_necessary()
             time_constraint_updated = False
             if not mf_query_request.time_constraint_start:
@@ -464,7 +479,7 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
         return [
             Dimension(name=dim.qualified_name)
             for dim in self._semantic_model.metric_semantics.element_specs_for_metrics(
-                metric_specs=[MetricSpec(element_name=mname) for mname in metric_names],
+                metric_references=[MetricReference(element_name=mname) for mname in metric_names],
                 without_any_property=frozenset(
                     {
                         LinkableElementProperties.IDENTIFIER,
@@ -486,8 +501,8 @@ class MetricFlowEngine(AbstractMetricFlowEngine):
 
     @log_call(module_name=__name__, telemetry_reporter=_telemetry_reporter)
     def list_metrics(self) -> List[Metric]:  # noqa: D
-        metric_specs = self._semantic_model.metric_semantics.metric_names
-        metrics = self._semantic_model.metric_semantics.get_metrics(metric_specs)
+        metric_references = self._semantic_model.metric_semantics.metric_references
+        metrics = self._semantic_model.metric_semantics.get_metrics(metric_references)
         return [
             Metric(
                 name=metric.name,

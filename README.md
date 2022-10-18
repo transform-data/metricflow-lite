@@ -12,4 +12,4 @@ MetricFlow-Lite is a forked version of MetricFlow with data warehouse connector 
 
 MetricFlow-Lite is open source software. The project relies on several licenses including AGPL-3.0-or-later and Apache (specified at folder level).
 
-MetricFlow-Lite is built by [Transform](https://transform.co/), the company behind the first metrics store.
+MetricFlow-Lite is built by [Transform](https://transform.co/)
